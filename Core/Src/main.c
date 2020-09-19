@@ -67,28 +67,62 @@ config_t config_table[] = {
 				.A = 100
 		}
 };
+
+config_t cfg = { 0 };
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+/**
+ * @brief rises led to maximum brightness
+ * @param cfg - config structure that contains certain data
+ */
+void rise(config_t cfg);
+/**
+ * @brief resets to low level
+ * @param cfg - config structure that contains certain data
+ */
+void fall(config_t cfg);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void tim1_irq(void){
 	static int i = 0;
-	if (i > 65535){
-		i = 0;
+	static int state = 1;
+	switch(state){
+	case 1:
+		if(i == (float)cfg.A/100.0 * 65535.0){
+			state = 2;
+			HAL_TIM_Base_Stop_IT(&htim1);
+			TIM4->CCR1 = i;
+		}
+		else{
+			TIM4->CCR1 = i++;
+		}
+		break;
+	case 2:
+		if(i == 0){
+			state = 1;
+			HAL_TIM_Base_Stop_IT(&htim1);
+			TIM4->CCR1 = 0;
+			i = 0;
+		}
+		else{
+			TIM4->CCR1 = i--;
+		}
+		break;
 	}
-	else TIM4->CCR1 = i++;
 }
 
 
 void delay_us(uint64_t delay){
+	htim1.Instance->CNT = 0; // reset counter
+	HAL_TIM_Base_Start(&htim1);
 	uint16_t init = (uint16_t)__HAL_TIM_GET_COUNTER(&htim1);
 	while(((uint16_t)__HAL_TIM_GET_COUNTER(&htim1)-init) < delay);
+	HAL_TIM_Base_Stop(&htim1);
 }
 
 void ext_irq(void){
@@ -103,11 +137,16 @@ void ext_irq(void){
 int main(void)
 {
 	/* USER CODE BEGIN 1 */
-	config_t cfg = config_read();
+	uint8_t next_cfg = 0;
+	cfg = config_read();
 	uint8_t error = 1;
 	for(int i = 0; i < 3; i++){
-		if (memcmp(&cfg, &config_table[i], sizeof(config_t)) == 0)
+		if (memcmp(&cfg, &config_table[i], sizeof(config_t)) == 0) {
+			next_cfg = i + 1;
+			if (next_cfg >= 3)
+				next_cfg = 0;
 			error = 0;
+		}
 	}
 	if (error){
 		memcpy(&cfg, &config_table[0], sizeof(config_t));
@@ -138,7 +177,6 @@ int main(void)
 	/* USER CODE BEGIN 2 */
 	int i = 0;
 	HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
-	HAL_TIM_Base_Start(&htim1);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -147,30 +185,23 @@ int main(void)
 	while (!reset)
 	{
 		switch(state){
+		// rising state
 		case 1:
-			for(int i = 0; i < 65535; i++){
-				TIM4->CCR1 = i;
-				delay_us(1);
-			}
+			rise(cfg);
 			state++;
 			break;
+			// halt state
 		case 2:
-			for (int i = 0; i < 100; ++i) {
-				delay_us(10000);
-			}
+			HAL_Delay(cfg.t2);
 			state++;
 			break;
+			// falling state
 		case 3:
-			for(int i = 65535; i >= 0; i--){
-				TIM4->CCR1 = i;
-				delay_us(1);
-			}
+			fall(cfg);
 			state++;
 			break;
 		default:
-			for (int i = 0; i < 100; ++i) {
-				delay_us(10000);
-			}
+			HAL_Delay(1000);
 			state = 1;
 			break;
 		}
@@ -178,6 +209,8 @@ int main(void)
 
 		/* USER CODE BEGIN 3 */
 	}
+	// save next configuration
+	config_save(&config_table[next_cfg]);
 	NVIC_SystemReset();
 	/* USER CODE END 3 */
 }
@@ -226,6 +259,22 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void rise(config_t cfg){
+	uint32_t max = (float)cfg.A/100.0 * 65535.0;
+	__HAL_TIM_SET_AUTORELOAD(&htim1, 84000000.0/(float)(max) * (float)cfg.t1/1000.0 - 1);
+	__HAL_TIM_SET_COUNTER(&htim1, 0);
+	HAL_TIM_Base_Start_IT(&htim1);
+	while(TIM4->CCR1 < max);
+}
+
+
+void fall(config_t cfg){
+	uint32_t max = (float)cfg.A/100.0 * 65535.0;
+	__HAL_TIM_SET_AUTORELOAD(&htim1, 84000000.0/(float)(max) * (float)cfg.t3/1000.0 - 1);
+	__HAL_TIM_SET_COUNTER(&htim1, 0);
+	HAL_TIM_Base_Start_IT(&htim1);
+	while(TIM4->CCR1 > 0);
+}
 /* USER CODE END 4 */
 
 /**

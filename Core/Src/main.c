@@ -24,7 +24,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "config.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +46,27 @@
 
 /* USER CODE BEGIN PV */
 uint8_t reset = 0;
+
+config_t config_table[] = {
+		{
+				.t1 = 100,
+				.t2 = 1000,
+				.t3 = 100,
+				.A = 100
+		},
+		{
+				.t1 = 100,
+				.t2 = 1000,
+				.t3 = 100,
+				.A = 20
+		},
+		{
+				.t1 = 1200,
+				.t2 = 100,
+				.t3 = 5000,
+				.A = 100
+		}
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -81,7 +103,16 @@ void ext_irq(void){
 int main(void)
 {
 	/* USER CODE BEGIN 1 */
-
+	config_t cfg = config_read();
+	uint8_t error = 1;
+	for(int i = 0; i < 3; i++){
+		if (memcmp(&cfg, &config_table[i], sizeof(config_t)) == 0)
+			error = 0;
+	}
+	if (error){
+		memcpy(&cfg, &config_table[0], sizeof(config_t));
+		config_save(&cfg);
+	}
 	/* USER CODE END 1 */
 
 	/* MCU Configuration--------------------------------------------------------*/
@@ -147,6 +178,7 @@ int main(void)
 
 		/* USER CODE BEGIN 3 */
 	}
+	NVIC_SystemReset();
 	/* USER CODE END 3 */
 }
 

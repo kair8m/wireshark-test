@@ -44,7 +44,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t reset = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -67,6 +67,10 @@ void tim1_irq(void){
 void delay_us(uint64_t delay){
 	uint16_t init = (uint16_t)__HAL_TIM_GET_COUNTER(&htim1);
 	while(((uint16_t)__HAL_TIM_GET_COUNTER(&htim1)-init) < delay);
+}
+
+void ext_irq(void){
+	reset = 1;
 }
 /* USER CODE END 0 */
 
@@ -109,7 +113,7 @@ int main(void)
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	int state = 1;//rising state
-	while (1)
+	while (!reset)
 	{
 		switch(state){
 		case 1:

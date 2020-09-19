@@ -55,7 +55,19 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void tim1_irq(void){
+	static int i = 0;
+	if (i > 65535){
+		i = 0;
+	}
+	else TIM4->CCR1 = i++;
+}
 
+
+void delay_us(uint64_t delay){
+	uint16_t init = (uint16_t)__HAL_TIM_GET_COUNTER(&htim1);
+	while(((uint16_t)__HAL_TIM_GET_COUNTER(&htim1)-init) < delay);
+}
 /* USER CODE END 0 */
 
 /**
@@ -86,15 +98,47 @@ int main(void)
 
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
+	MX_TIM4_Init();
 	MX_TIM1_Init();
 	/* USER CODE BEGIN 2 */
-
+	int i = 0;
+	HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+	HAL_TIM_Base_Start(&htim1);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
+	int state = 1;//rising state
 	while (1)
 	{
+		switch(state){
+		case 1:
+			for(int i = 0; i < 65535; i++){
+				TIM4->CCR1 = i;
+				delay_us(1);
+			}
+			state++;
+			break;
+		case 2:
+			for (int i = 0; i < 100; ++i) {
+				delay_us(10000);
+			}
+			state++;
+			break;
+		case 3:
+			for(int i = 65535; i >= 0; i--){
+				TIM4->CCR1 = i;
+				delay_us(1);
+			}
+			state++;
+			break;
+		default:
+			for (int i = 0; i < 100; ++i) {
+				delay_us(10000);
+			}
+			state = 1;
+			break;
+		}
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
@@ -146,7 +190,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
 /* USER CODE END 4 */
 
 /**

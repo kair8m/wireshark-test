@@ -259,12 +259,21 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/**
+ * @code
+ * 	TIM1->ARR = SYSCLK*t/max - 1;
+ * @endcode
+ */
 void rise(config_t cfg){
 	uint32_t max = (float)cfg.A/100.0 * 65535.0;
 	__HAL_TIM_SET_AUTORELOAD(&htim1, 84000000.0/(float)(max) * (float)cfg.t1/1000.0 - 1);
 	__HAL_TIM_SET_COUNTER(&htim1, 0);
 	HAL_TIM_Base_Start_IT(&htim1);
-	while(TIM4->CCR1 < max);
+	while(TIM4->CCR1 < max){
+		if(reset)
+			return;
+	}
 }
 
 
@@ -273,7 +282,10 @@ void fall(config_t cfg){
 	__HAL_TIM_SET_AUTORELOAD(&htim1, 84000000.0/(float)(max) * (float)cfg.t3/1000.0 - 1);
 	__HAL_TIM_SET_COUNTER(&htim1, 0);
 	HAL_TIM_Base_Start_IT(&htim1);
-	while(TIM4->CCR1 > 0);
+	while(TIM4->CCR1 > 0){
+		if(reset)
+			return;
+	}
 }
 /* USER CODE END 4 */
 
